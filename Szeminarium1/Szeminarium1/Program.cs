@@ -122,15 +122,35 @@ namespace Szeminarium1
             };
 
             uint[] indexArray = new uint[] { 
-                0, 0, 2,
+                0, 1, 2,
                 2, 1, 3
             };
 
             uint vertices = Gl.GenBuffer();
-            Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
-            Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
-            Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
-            Gl.EnableVertexAttribArray(0);
+            try
+            {
+                Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
+                CheckForGLError("Gl.BufferData");
+
+                Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
+                CheckForGLError("Gl.VertexAttribPointer");
+
+                Gl.EnableVertexAttribArray(0);
+                CheckForGLError("Gl.EnableVertexAttribArray");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+
+            void CheckForGLError(string operation)
+            {
+                GLEnum error = Gl.GetError();
+                if (error != GLEnum.NoError)
+                {
+                    throw new Exception($"OpenGL error during {operation}: {error}");
+                }
+            }
 
             uint colors = Gl.GenBuffer();
             Gl.BindBuffer(GLEnum.ArrayBuffer, colors);
