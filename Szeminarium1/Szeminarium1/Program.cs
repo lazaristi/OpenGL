@@ -122,7 +122,7 @@ namespace Szeminarium1
             };
 
             uint[] indexArray = new uint[] { 
-                0, 1, 2,
+                0, 0, 2,
                 2, 1, 3
             };
 
