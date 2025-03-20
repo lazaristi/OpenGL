@@ -109,13 +109,13 @@ namespace Szeminarium1
 
             float[] vertexArray = new float[] {
                 -0.5f, 0.5f, 0.0f,
-                -0.5f, -0.5f, 0.0f,
-                 0.0f, -1f, 0.0f,
+                -0.5f, -0.25f, 0.0f,
+                 0.0f, -0.75f, 0.0f,
                  0f, 0f, 0f,
 
                  0f, 0f, 0f, 
-                 0f, -1f, 0.0f,
-                 0.5f, -0.5f, 0.0f,
+                 0f, -0.75f, 0.0f,
+                 0.5f, -0.25f, 0.0f,
                  0.5f, 0.5f, 0.0f,
 
                  -0.5f, 0.5f, 0f,
