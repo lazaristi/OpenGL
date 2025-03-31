@@ -1,91 +1,58 @@
 ﻿using Silk.NET.Maths;
+using System;
 
 namespace Szeminarium1_24_02_17_2
 {
     internal class CameraDescriptor
     {
-        private double DistanceToOrigin = 2;
+        public Vector3D<float> Position { get; set; } = new Vector3D<float>(0, 1, 3);
+        public float Yaw { get; set; } = -90f;
+        public float Pitch { get; set; } = 0f;
+        public float MovementSpeed { get; set; } = 0.1f;
+        public float RotationSpeed { get; set; } = 5f;
 
-        private double AngleToZYPlane = 1;
-
-        private double AngleToZXPlane = 0.7;
-
-        private const double DistanceScaleFactor = 1.1;
-
-        private const double AngleChangeStepSize = Math.PI / 180 * 5;
-
-        /// <summary>
-        /// Gets the position of the camera.
-        /// </summary>
-        public Vector3D<float> Position
+        public Vector3D<float> Front
         {
             get
             {
-                return GetPointFromAngles(DistanceToOrigin, AngleToZYPlane, AngleToZXPlane);
+                double radYaw = Yaw * Math.PI / 180;
+                double radPitch = Pitch * Math.PI / 180;
+                float x = (float)(Math.Cos(radYaw) * Math.Cos(radPitch));
+                float y = (float)(Math.Sin(radPitch));
+                float z = (float)(Math.Sin(radYaw) * Math.Cos(radPitch));
+                return Vector3D.Normalize(new Vector3D<float>(x, y, z));
             }
         }
 
-        /// <summary>
-        /// Gets the up vector of the camera.
-        /// </summary>
-        public Vector3D<float> UpVector
+        public Vector3D<float> Up { get; set; } = new Vector3D<float>(0, 1, 0);
+        public Vector3D<float> Right => Vector3D.Normalize(Vector3D.Cross(Front, Up));
+
+        public void ProcessKeyboard(MovementDirection direction, float deltaTime)
         {
-            get
+            float velocity = MovementSpeed * deltaTime;
+            switch (direction)
             {
-                return Vector3D.Normalize(GetPointFromAngles(DistanceToOrigin, AngleToZYPlane, AngleToZXPlane + Math.PI / 2));
+                case MovementDirection.Forward:
+                    Position += Front * velocity;
+                    break;
+                case MovementDirection.Backward:
+                    Position -= Front * velocity;
+                    break;
+                case MovementDirection.Left:
+                    Position -= Right * velocity;
+                    break;
+                case MovementDirection.Right:
+                    Position += Right * velocity;
+                    break;
+                case MovementDirection.Up:
+                    Position += Up * velocity;
+                    break;
+                case MovementDirection.Down:
+                    Position -= Up * velocity;
+                    break;
             }
         }
 
-        /// <summary>
-        /// Gets the target point of the camera view.
-        /// </summary>
-        public Vector3D<float> Target
-        {
-            get
-            {
-                // For the moment the camera is always pointed at the origin.
-                return Vector3D<float>.Zero;
-            }
-        }
-
-        public void IncreaseZXAngle()
-        {
-            AngleToZXPlane += AngleChangeStepSize;
-        }
-
-        public void DecreaseZXAngle()
-        {
-            AngleToZXPlane -= AngleChangeStepSize;
-        }
-
-        public void IncreaseZYAngle()
-        {
-            AngleToZYPlane += AngleChangeStepSize;
-
-        }
-
-        public void DecreaseZYAngle()
-        {
-            AngleToZYPlane -= AngleChangeStepSize;
-        }
-
-        public void IncreaseDistance()
-        {
-            DistanceToOrigin = DistanceToOrigin * DistanceScaleFactor;
-        }
-
-        public void DecreaseDistance()
-        {
-            DistanceToOrigin = DistanceToOrigin / DistanceScaleFactor;
-        }
-
-        private static Vector3D<float> GetPointFromAngles(double distanceToOrigin, double angleToMinZYPlane, double angleToMinZXPlane)
-        {
-            var x = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Sin(angleToMinZYPlane);
-            var z = distanceToOrigin * Math.Cos(angleToMinZXPlane) * Math.Cos(angleToMinZYPlane);
-            var y = distanceToOrigin * Math.Sin(angleToMinZXPlane);
-
-            return new Vector3D<float>((float)x, (float)y, (float)z);
-        }
+        public enum MovementDirection { Forward, Backward, Left, Right, Up, Down }
     }
 }

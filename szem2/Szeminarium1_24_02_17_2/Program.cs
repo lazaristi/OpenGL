@@ -10,6 +10,7 @@ namespace Szeminarium1_24_02_17_2
 {
     internal static class Program
     {
+
         private static CameraDescriptor cameraDescriptor = new();
         private static IWindow window;
         private static GL Gl;
@@ -18,9 +19,11 @@ namespace Szeminarium1_24_02_17_2
         private static List<Matrix4X4<float>> rubikCubeMatrices = new();
         private static IInputContext inputContext;
 
+
         private const string ModelMatrixVariableName = "uModel";
         private const string ViewMatrixVariableName = "uView";
         private const string ProjectionMatrixVariableName = "uProjection";
+
 
         private static readonly string VertexShaderSource = @"
         #version 330 core
@@ -45,6 +48,13 @@ namespace Szeminarium1_24_02_17_2
             FragColor = outCol;
         }";
 
+
+        private static List<int> topFaceCubeIndices = new();
+        private static bool topFaceAnimating = false;
+        private static float topFaceCurrentAngle = 0f;
+        private static float topFaceTargetAngle = 0f;
+        private static float topFaceRotationSpeed = (float)(Math.PI / 2);
+
         static void Main(string[] args)
         {
             WindowOptions options = WindowOptions.Default;
@@ -62,12 +72,6 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Load()
         {
-            cameraDescriptor.IncreaseDistance();
-            cameraDescriptor.IncreaseDistance();
-            cameraDescriptor.IncreaseDistance();
-            cameraDescriptor.IncreaseZXAngle();
-            cameraDescriptor.IncreaseZXAngle();
-
             inputContext = window.CreateInput();
             foreach (var keyboard in inputContext.Keyboards)
             {
@@ -88,16 +92,79 @@ namespace Szeminarium1_24_02_17_2
         {
             switch (key)
             {
-                case Key.Left: cameraDescriptor.DecreaseZYAngle(); break;
-                case Key.Right: cameraDescriptor.IncreaseZYAngle(); break;
-                case Key.Up: cameraDescriptor.DecreaseDistance(); break;
-                case Key.Down: cameraDescriptor.IncreaseDistance(); break;
-                case Key.U: cameraDescriptor.IncreaseZXAngle(); break;
-                case Key.D: cameraDescriptor.DecreaseZXAngle(); break;
+                case Key.Up:
+                    cameraDescriptor.ProcessKeyboard(CameraDescriptor.MovementDirection.Forward, 1);
+                    break;
+                case Key.Down:
+                    cameraDescriptor.ProcessKeyboard(CameraDescriptor.MovementDirection.Backward, 1);
+                    break;
+                case Key.Left:
+                    cameraDescriptor.ProcessKeyboard(CameraDescriptor.MovementDirection.Left, 1);
+                    break;
+                case Key.Right:
+                    cameraDescriptor.ProcessKeyboard(CameraDescriptor.MovementDirection.Right, 1);
+                    break;
+                case Key.A:
+                    cameraDescriptor.Yaw -= cameraDescriptor.RotationSpeed;
+                    break;
+                case Key.D:
+                    cameraDescriptor.Yaw += cameraDescriptor.RotationSpeed;
+                    break;
+                case Key.W:
+                    cameraDescriptor.Pitch += cameraDescriptor.RotationSpeed;
+                    break;
+                case Key.S:
+                    cameraDescriptor.Pitch -= cameraDescriptor.RotationSpeed;
+                    break;
+                case Key.Q:
+                    cameraDescriptor.ProcessKeyboard(CameraDescriptor.MovementDirection.Down, 1);
+                    break;
+                case Key.E:
+                    cameraDescriptor.ProcessKeyboard(CameraDescriptor.MovementDirection.Up, 1);
+                    break;
+
+                case Key.Space:
+                    if (!topFaceAnimating)
+                    {
+                        topFaceTargetAngle = topFaceCurrentAngle + (float)(Math.PI / 2);
+                        topFaceAnimating = true;
+                    }
+                    break;
+                case Key.Backspace:
+                    if (!topFaceAnimating)
+                    {
+                        topFaceTargetAngle = topFaceCurrentAngle - (float)(Math.PI / 2);
+                        topFaceAnimating = true;
+                    }
+                    break;
             }
         }
 
-        private static void Window_Update(double deltaTime) { }
+        private static void Window_Update(double deltaTime)
+        {
+            if (topFaceAnimating)
+            {
+                float angleStep = topFaceRotationSpeed * (float)deltaTime;
+                if (topFaceCurrentAngle < topFaceTargetAngle)
+                {
+                    topFaceCurrentAngle += angleStep;
+                    if (topFaceCurrentAngle >= topFaceTargetAngle)
+                    {
+                        topFaceCurrentAngle = topFaceTargetAngle;
+                        topFaceAnimating = false;
+                    }
+                }
+                else if (topFaceCurrentAngle > topFaceTargetAngle)
+                {
+                    topFaceCurrentAngle -= angleStep;
+                    if (topFaceCurrentAngle <= topFaceTargetAngle)
+                    {
+                        topFaceCurrentAngle = topFaceTargetAngle;
+                        topFaceAnimating = false;
+                    }
+                }
+            }
+        }
 
         private static unsafe void Window_Render(double deltaTime)
         {
@@ -109,7 +176,18 @@ namespace Szeminarium1_24_02_17_2
 
             for (int i = 0; i < rubikCubes.Count; i++)
             {
-                SetModelMatrix(rubikCubeMatrices[i]);
+                Matrix4X4<float> model = rubikCubeMatrices[i];
+
+                if (topFaceCubeIndices.Contains(i))
+                {
+                    Matrix4X4<float> center = Matrix4X4.CreateTranslation(0, 0.35f, 0);
+                    Matrix4X4<float> invCenter = Matrix4X4.CreateTranslation(0, -0.35f, 0);
+                    Matrix4X4<float> rotation = Matrix4X4.CreateFromAxisAngle(new Vector3D<float>(0, 1, 0), topFaceCurrentAngle);
+                    Matrix4X4<float> faceRotation = center * rotation * invCenter;
+                    model = model * faceRotation;
+                }
+
+                SetModelMatrix(model);
                 Gl.BindVertexArray(rubikCubes[i].Vao);
                 Gl.DrawElements(GLEnum.Triangles, rubikCubes[i].IndexArrayLength, GLEnum.UnsignedInt, null);
             }
@@ -118,16 +196,17 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetUpObjects()
         {
-            float[] grey = [0.1f, 0.1f, 0.1f, 1.0f];
-            float[] front = [0.0f, 0.7f, 0.0f, 1.0f];  // Green
-            float[] back = [0.0f, 0.0f, 0.7f, 1.0f];   // Blue
-            float[] left = [0.8f, 0.4f, 0.0f, 1.0f];   // Orange
-            float[] right = [0.7f, 0.0f, 0.0f, 1.0f];  // Red
-            float[] top = [0.9f, 0.9f, 0.9f, 1.0f];    // White
-            float[] bottom = [0.7f, 0.7f, 0.0f, 1.0f]; // Yellow
+            float[] grey = new float[] { 0.1f, 0.1f, 0.1f, 1.0f };
+            float[] front = new float[] { 0.0f, 0.7f, 0.0f, 1.0f };
+            float[] back = new float[] { 0.0f, 0.0f, 0.7f, 1.0f };
+            float[] left = new float[] { 0.8f, 0.4f, 0.0f, 1.0f };
+            float[] right = new float[] { 0.7f, 0.0f, 0.0f, 1.0f };
+            float[] top = new float[] { 0.9f, 0.9f, 0.9f, 1.0f };
+            float[] bottom = new float[] { 0.7f, 0.7f, 0.0f, 1.0f };
 
-            float size = 0.33f; 
-            float offset = 0.35f; 
+            float size = 0.33f;
+            float offset = 0.35f;
+            int index = 0;
 
             for (int x = -1; x <= 1; x++)
             {
@@ -153,6 +232,12 @@ namespace Szeminarium1_24_02_17_2
                             Matrix4X4.CreateScale(size) *
                             Matrix4X4.CreateTranslation(x * offset, y * offset, z * offset);
                         rubikCubeMatrices.Add(model);
+
+                        if (y == 1)
+                        {
+                            topFaceCubeIndices.Add(index);
+                        }
+                        index++;
                     }
                 }
             }
@@ -166,10 +251,10 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetViewMatrix()
         {
-            var view = Matrix4X4.CreateLookAt(
+            Matrix4X4<float> view = Matrix4X4.CreateLookAt(
                 cameraDescriptor.Position,
-                cameraDescriptor.Target,
-                cameraDescriptor.UpVector
+                cameraDescriptor.Position + cameraDescriptor.Front,
+                cameraDescriptor.Up
             );
             int loc = Gl.GetUniformLocation(program, ViewMatrixVariableName);
             Gl.UniformMatrix4(loc, 1, false, (float*)&view);
@@ -177,7 +262,7 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetProjectionMatrix()
         {
-            var proj = Matrix4X4.CreatePerspectiveFieldOfView(
+            Matrix4X4<float> proj = Matrix4X4.CreatePerspectiveFieldOfView(
                 (float)Math.PI / 4f,
                 window.Size.X / (float)window.Size.Y,
                 0.1f,
